@@ -1,5 +1,8 @@
 #!/bin/sh
 
+# This script adds up the CPU usage of the
+# given PIDs and their children (recursively).
+
 arg=$1
 verbose=''
 
