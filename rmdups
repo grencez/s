@@ -1,0 +1,42 @@
+#!/bin/sh
+
+## This script removes duplicate files.
+
+listf=`mktemp`
+
+if [ -z "$1" ]
+then
+  cat - > "$listf"
+else
+  for f in "$@"
+  do
+    echo "$f" >> "$listf"
+  done
+fi
+
+cat "$listf" | \
+while read -r f
+do
+  if [ ! -f "$f" ]
+  then
+    continue
+  fi
+
+  cat "$listf" | grep -v "$f" | \
+  while read -r g
+  do
+    if [ ! -f "$g" ]
+    then
+      continue
+    fi
+
+    if diff -q "$f" "$g" > /dev/null
+    then
+      echo $f $g
+      rm $g
+    fi
+  done
+done
+
+rm -f "$listf"
+
