@@ -28,10 +28,29 @@ then
   EDITOR='less'
 fi
 
-vcs=svn
-if ls -a | grep -q '^\.git$'
-then
+top_path=
+new_path=$PWD
+
+vcs=''
+while [ "$top_path" != "$new_path" ]
+do
+  top_path="$new_path"
+  if [ -e "${top_path}/.git" ]
+  then
     vcs=git
+    break
+  elif [ -e "${top_path}/.svn" ]
+  then
+    vcs=svn
+    break
+  fi
+  new_path=`dirname "${top_path}"`
+done
+
+if [ ! "$vcs" ]
+then
+  echo 'Current directory is not under version control.' 1>&2
+  exit 1
 fi
 
 newfiles_svn()
@@ -65,7 +84,7 @@ modfiles_git()
 
 catfile_git()
 {
-    git show HEAD:"$1" > "$2"
+    git show HEAD:"./$1" > "$2"
 }
 
 newfiles()
