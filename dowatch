@@ -13,16 +13,26 @@ oldkey=""
 while true
 do
   newkey=`ls --full-time "$@"`
-  if [ "$newkey" != "$oldkey" ]
+  if [ "$newkey" == "$oldkey" ]
   then
+    sleep 1s
+  else
+    sleep .5s  # Try to avoid race conditions from slow writes.
+    printf '\033]0;RUNNING\a'
     printf '\n\n\n\n\n\n\n\n\n\n' >&2
     printf 'Running: sh -c "%s"\n' "$cmd" >&2
-    sleep 1
-    newkey=`ls --full-time "$@"`
-    sh -c "$cmd"
-    printf 'Result was: %d\n' $? >&2
+    oldkey=`ls --full-time "$@"`
+
+    sh -c "$cmd" < /dev/null
+    statuscode=$?
+    printf 'Result was: %d\n' "$statuscode" >&2
+    if [ "$statuscode" = 0 ]
+    then
+      printf '\033]0;PASS %d\a' "$statuscode"
+    else
+      printf '\033]0;FAIL %d\a' "$statuscode"
+    fi
   fi
-  oldkey=$newkey
   sleep 1
 done
 
