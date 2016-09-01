@@ -1,0 +1,39 @@
+#!/bin/sh
+
+filename="$1"
+shift
+if [ -z "$filename" ]
+then
+  echo "Need a filename!" >&2
+  exit 1
+fi
+
+dst_address='me@email.com'
+src_host='myhostname.com' # SSH to this.
+src_address='notify@myhostname.com'
+src_name='notify@me'
+
+## Please set these to real values in your config.
+dst_address=''
+src_host=''
+src_address=''
+. "${HOME}/.config/tailmail.conf"
+
+if [ -z "$dst_address" -o -z "$src_host" -o -z "$src_address" ]
+then
+  echo 'Please set the values of $dst_address, $src_host, and $src_address' \
+    'in ${HOME}/.config/tailmail.conf' >&2
+  exit 1
+fi
+
+timestamp=$(stat "${filename}" | grep -e '^Access:'  | tail -n1 | sed 's/^[^:]*: \(.*\)\..*$/\1/')
+
+while ! grep -qe . "$filename"
+do
+  sleep 5m
+done \
+&& \
+tail -n10 "${filename}" \
+| ssh "${src_host}" \
+  "mail -s 'tail ${filename} # made ${timestamp}' -r '${src_address} (${src_name})' ${dst_address}"
+
