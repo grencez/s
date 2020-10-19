@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# Example: sudo ./backup.sh /dev/sdb ~/.my/secretkeyfile
+# Example: sudo ./backup.sh /dev/sdb1 --keyfile ~/.my/secretkeyfile
 
 # Root device and boot device (we back up both).
 rootdev=$(grep -o -e '^\S\+\s\+/\s' /etc/fstab  | grep -o -e '^\S*')
@@ -13,14 +13,25 @@ rootmnt="/root/rootmnt"
 
 backdev="$1"
 shift
-backkey="$1"
-shift
-dstpath="$1"
-shift
 
-if [ -z "$backdev" -o -z "$backkey" ]
+backkey=""
+if [ "$1" = "--keyfile" ]
 then
-  echo "Usage: $0 <device> <keyfile> [<dstpath>]" >&2
+  shift
+  backkey="$1"
+  shift
+fi
+
+dstpath=""
+if [ -n "$1" ]
+then
+  dstpath="$1"
+  shift
+fi
+
+if [ -z "$backdev" ]
+then
+  echo "Usage: $0 <device> [--keyfile <keyfile>] [<dstpath>]" >&2
   echo "  Where <keyfile> is the full path to the luks key to decrypt your device." >&2
   echo "  And <dstpath> is the path on the backup device to copy to (the computer name by default)" >&2
   exit 1
@@ -71,7 +82,12 @@ run()
 
 run mkdir -p "$backmnt" "$rootmnt"
 
-run cryptsetup luksOpen -d "$backkey" "$backdev" "$backname"
+if [ -z "$backkey" ]
+then
+  run cryptsetup luksOpen "$backdev" "$backname"
+else
+  run cryptsetup luksOpen -d "$backkey" "$backdev" "$backname"
+fi
 run mount "/dev/mapper/$backname" "$backmnt"
 
 run mount "$rootdev" "$rootmnt"
