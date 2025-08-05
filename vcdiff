@@ -28,14 +28,19 @@ then
   EDITOR='less'
 fi
 
-top_path=
-new_path=$PWD
+top_path=''
+new_path="${PWD}"
 
 vcs=''
 while [ "$top_path" != "$new_path" ]
 do
   top_path="$new_path"
-  if [ -e "${top_path}/.git" ]
+  # Check for ".jj" first because it can coexist with ".git".
+  if [ -e "${top_path}/.jj" ]
+  then
+    vcs=jj
+    break
+  elif [ -e "${top_path}/.git" ]
   then
     vcs=git
     break
@@ -44,73 +49,93 @@ do
     vcs=svn
     break
   fi
-  new_path=`dirname "${top_path}"`
+  new_path=$(dirname "${top_path}")
 done
 
-if [ ! "$vcs" ]
+if [ -z "${vcs}" ]
 then
   echo 'Current directory is not under version control.' 1>&2
   exit 1
 fi
 
-newfiles_svn()
-{
-    svn stat -q "$1" | \
-    awk -- '$1 == "A" { print $NF; }'
-}
-
-modfiles_svn()
-{
-    svn stat -q "$1" | \
-    awk -- '$1 == "M" { print $NF; }'
-}
-
-catfile_svn()
-{
-    svn cat "$1" > "$2"
-}
-
 newfiles_git()
 {
-    git status -s "$1" | \
-    awk -- '$1 == "A" { print $NF; }'
+  git status -s "$1" |
+  awk -- '$1 == "A" { print $NF; }'
 }
 
 modfiles_git()
 {
-    git status -s "$1" | \
-    awk -- '$1 == "M" { print $NF; }'
+  git status -s "$1" |
+  awk -- '$1 == "M" { print $NF; }'
 }
 
 catfile_git()
 {
-    git show HEAD:"./$1" > "$2"
+  git show HEAD:"./$1" > "$2"
+}
+
+newfiles_jj()
+{
+  jj status -- "$1" |
+  awk -- '$1 == "A" { print $NF; }'
+}
+
+modfiles_jj()
+{
+  jj status -- "$1" |
+  awk -- '$1 == "M" { print $NF; }'
+}
+
+catfile_jj()
+{
+  jj file show -r '@-' -- "./$1" > "$2"
+}
+
+newfiles_svn()
+{
+  svn stat -q "$1" |
+  awk -- '$1 == "A" { print $NF; }'
+}
+
+modfiles_svn()
+{
+  svn stat -q "$1" |
+  awk -- '$1 == "M" { print $NF; }'
+}
+
+catfile_svn()
+{
+  svn cat "$1" > "$2"
 }
 
 newfiles()
 {
-    # Show new files.
-    case "$vcs" in
-        svn) newfiles_svn "$@" ;;
-        git) newfiles_git "$@" ;;
-    esac
+  # Show new files.
+  case "$vcs" in
+    git) newfiles_git "$@" ;;
+    jj) newfiles_jj "$@" ;;
+    svn) newfiles_svn "$@" ;;
+  esac
 }
 
 modfiles()
 {
-    # Show modified files.
-    case "$vcs" in
-        svn) modfiles_svn "$@" ;;
-        git) modfiles_git "$@" ;;
-    esac
+  # Show modified files.
+  case "$vcs" in
+    git) modfiles_git "$@" ;;
+    jj) modfiles_jj "$@" ;;
+    svn) modfiles_svn "$@" ;;
+  esac
 }
 
 catfile()
 {
-    case "$vcs" in
-        svn) catfile_svn "$@" ;;
-        git) catfile_git "$@" ;;
-    esac
+  case "$vcs" in
+    git) catfile_git "$@" ;;
+    jj) catfile_jj "$@" ;;
+    svn) catfile_svn "$@" ;;
+  esac
 }
 
 # Redirect stdin to file descriptor 3,
@@ -122,7 +147,7 @@ do
   file="$1"
   shift
 
-  { newfiles "$file" ; } | \
+  { newfiles "$file" ; } |
   # Show newly added files.
   while read -r f
   do
@@ -134,7 +159,7 @@ do
     fi
   done
 
-  { modfiles "$file" ; } | \
+  { modfiles "$file" ; } |
   while read -r f
   do
     tmpf=`mktemp`

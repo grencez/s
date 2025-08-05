@@ -13,7 +13,7 @@ oldkey=""
 while true
 do
   newkey=`ls --full-time "$@"`
-  if [ "$newkey" == "$oldkey" ]
+  if [ "$newkey" = "$oldkey" ]
   then
     sleep 1s
   else
